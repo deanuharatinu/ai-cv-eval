@@ -1,0 +1,25 @@
+from functools import lru_cache
+from pydantic import BaseSettings, Field
+
+
+class Settings(BaseSettings):
+    app_name: str = Field(default="AI CV Evaluation Backend")
+    version: str = Field(default="0.1.0")
+    environment: str = Field(default="development")
+    database_url: str = Field(default="sqlite+aiosqlite:///./data/app.db")
+    storage_root: str = Field(default="./data/files")
+    documents_root: str = Field(default="./data/documents")
+    llm_provider: str = Field(default="mock")
+    llm_model: str = Field(default="gpt-4o-mini")
+
+    class Config:
+        env_file = ".env"
+        case_sensitive = False
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()  # type: ignore[call-arg]
+
+
+settings = get_settings()
