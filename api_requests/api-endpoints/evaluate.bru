@@ -1,0 +1,19 @@
+meta {
+  name: Evaluate
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/evaluate
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "job_title": "product engineer (backend)",
+    "cv_id": "0867edc59a14dec5522d2e0ff2ff8815",
+    "report_id": "4744fae5e8c4e6bba298cc089462da67"
+  }
+}
