@@ -10,3 +10,4 @@ chromadb
 httpx
 loguru
 aiosqlite
+pydantic-settings
