@@ -8,7 +8,7 @@ from app.services.upload_service import UploadServiceProtocol
 router = APIRouter()
 
 
-@router.post("/", response_model=UploadResponse)
+@router.post("", response_model=UploadResponse)
 async def upload_files(
     cv: UploadFile = File(...),
     project_report: UploadFile = File(...),
