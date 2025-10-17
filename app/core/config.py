@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     documents_root: str = Field(default="./data/documents")
     llm_provider: str = Field(default="mock")
     llm_model: str = Field(default="gpt-4o-mini")
+    llm_provider_api_key: str = Field(default="")
 
     class Config:
         env_file = ".env"
