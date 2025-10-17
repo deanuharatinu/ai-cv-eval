@@ -24,7 +24,7 @@ def create_app() -> FastAPI:
         version=settings.version,
         lifespan=lifespan,
     )
-    app.include_router(upload_router, prefix="/upload", tags=["upload"])
+    app.include_router(upload_router, tags=["upload"])
     app.include_router(evaluate_router, prefix="/evaluate", tags=["evaluate"])
     app.include_router(result_router, prefix="/result", tags=["result"])
     app.include_router(health_router, prefix="/health", tags=["health"])
