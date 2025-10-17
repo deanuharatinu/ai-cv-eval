@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from app.api.routes_upload import router as upload_router
 from app.api.routes_evaluate import router as evaluate_router
 from app.api.routes_result import router as result_router
+from app.api.routes_health import router as health_router
 from app.core.config import settings
 from app.core.logging import configure_logging
 
@@ -26,6 +27,7 @@ def create_app() -> FastAPI:
     app.include_router(upload_router, prefix="/upload", tags=["upload"])
     app.include_router(evaluate_router, prefix="/evaluate", tags=["evaluate"])
     app.include_router(result_router, prefix="/result", tags=["result"])
+    app.include_router(health_router, prefix="/health", tags=["health"])
     return app
 
 
