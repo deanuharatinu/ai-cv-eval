@@ -1,0 +1,16 @@
+meta {
+  name: Upload
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/upload
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  cv: @file()
+  project_report: @file()
+}
