@@ -2,6 +2,8 @@ from functools import lru_cache
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
+from app.util import constants
+
 
 class Settings(BaseSettings):
     app_name: str = Field(default="AI CV Evaluation Backend")
@@ -11,7 +13,8 @@ class Settings(BaseSettings):
     storage_root: str = Field(default="./data/files")
     documents_root: str = Field(default="./data/documents")
     llm_provider: str = Field(default="mock")
-    llm_model: str = Field(default="gpt-4o-mini")
+    llm_model: str = Field(default=constants.GEMINI_2_5_FLASH)
+    llm_model_cv_parser: str = Field(default=constants.GEMINI_2_5_FLASH)
     llm_provider_api_key: str = Field(default="")
 
     class Config:
