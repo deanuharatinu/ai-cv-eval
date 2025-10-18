@@ -11,3 +11,4 @@ httpx
 loguru
 aiosqlite
 pydantic-settings
+google-genai
