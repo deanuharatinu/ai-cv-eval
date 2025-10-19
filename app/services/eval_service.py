@@ -82,9 +82,8 @@ class EvalService(EvalServiceProtocol):
 
     async def get_status(self, job_id: str) -> ResultResponse:
         async with self._session_factory() as session:
-            result = await session.execute(
-                text(
-                    """
+            query = text(
+                """
                     SELECT
                         j.id,
                         j.status,
@@ -99,9 +98,8 @@ class EvalService(EvalServiceProtocol):
                     LEFT JOIN evaluation_results AS r ON r.job_id = j.id
                     WHERE j.id = :job_id
                     """
-                ),
-                {"job_id": job_id},
             )
+            result = await session.execute(query, {"job_id": job_id})
             row = result.mappings().one_or_none()
 
             if row is None:
