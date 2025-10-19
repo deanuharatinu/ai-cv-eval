@@ -134,6 +134,7 @@ class GeminiLLMProvider(LLMProvider):
 
         resume_scoring_generate_config = types.GenerateContentConfig(
             temperature=0.3,
+            top_p=0.5,
             thinking_config=types.ThinkingConfig(thinking_budget=0),
             seed=0,
             response_mime_type="application/json",
@@ -172,6 +173,7 @@ class GeminiLLMProvider(LLMProvider):
 
         resume_scoring_generate_config = types.GenerateContentConfig(
             temperature=0.3,
+            top_p=0.5,
             thinking_config=types.ThinkingConfig(thinking_budget=0),
             seed=0,
             response_mime_type="application/json",
