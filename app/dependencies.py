@@ -2,6 +2,7 @@ from functools import lru_cache
 
 from app.adapters.llm_provider import GeminiLLMProvider, LLMProvider
 from app.adapters.queue_inproc import InProcessQueue
+from app.adapters.repository import SQLiteRepository
 from app.adapters.storage import LocalStorage, Storage
 from app.adapters.vector_store import ChromaDBVectorStore
 from app.services.eval_service import EvalService, EvalServiceProtocol
@@ -29,6 +30,11 @@ def get_vector_store() -> ChromaDBVectorStore:
     return ChromaDBVectorStore()
 
 
+@lru_cache
+def get_repository() -> SQLiteRepository:
+    return SQLiteRepository(session_factory=AsyncSessionMaker)
+
+
 def get_upload_service() -> UploadServiceProtocol:
     return UploadService(storage=get_storage())
 
@@ -36,7 +42,7 @@ def get_upload_service() -> UploadServiceProtocol:
 def get_eval_service() -> EvalServiceProtocol:
     return EvalService(
         queue=get_queue(),
-        session_factory=AsyncSessionMaker,
+        repository=get_repository(),
         storage=get_storage(),
         llm_provider=get_llm_provider(),
         vector_store=get_vector_store(),
