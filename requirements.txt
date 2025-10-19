@@ -12,3 +12,4 @@ loguru
 aiosqlite
 pydantic-settings
 google-genai
+pytest
