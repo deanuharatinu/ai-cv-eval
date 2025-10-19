@@ -11,6 +11,10 @@ def _array_schema(item_schema: types.Schema, *, nullable: bool = True) -> types.
     return types.Schema(type=types.Type.ARRAY, items=item_schema, nullable=nullable)
 
 
+def _integer_schema(*, nullable: bool = True) -> types.Schema:
+    return types.Schema(type=types.Type.INTEGER, nullable=nullable)
+
+
 def _object_schema(
     properties: dict[str, types.Schema],
     *,
@@ -272,5 +276,56 @@ PROJECT_REPORT_SCHEMA = _object_schema(
         "repository",
         "approach_design",
         "results_reflection",
+    ],
+)
+
+CV_MATCH_EVALUATION_SCHEMA = _object_schema(
+    {
+        "technical_skills_match": _integer_schema(),
+        "technical_skills_notes": _string_schema(),
+        "experience_level": _integer_schema(),
+        "experience_level_notes": _string_schema(),
+        "relevant_achievements": _integer_schema(),
+        "relevant_achievements_notes": _string_schema(),
+        "cultural_collaboration_fit": _integer_schema(),
+        "cultural_collaboration_fit_notes": _string_schema(),
+    },
+    required=[
+        "technical_skills_match",
+        "technical_skills_notes",
+        "experience_level",
+        "experience_level_notes",
+        "relevant_achievements",
+        "relevant_achievements_notes",
+        "cultural_collaboration_fit",
+        "cultural_collaboration_fit_notes",
+    ],
+)
+
+
+PROJECT_DELIVERABLE_EVALUATION_SCHEMA = _object_schema(
+    {
+        "correctness": _integer_schema(),
+        "correctness_notes": _string_schema(),
+        "code_quality_structure": _integer_schema(),
+        "code_quality_structure_notes": _string_schema(),
+        "resilience_error_handling": _integer_schema(),
+        "resilience_error_handling_notes": _string_schema(),
+        "documentation_explanation": _integer_schema(),
+        "documentation_explanation_notes": _string_schema(),
+        "creativity_bonus": _integer_schema(),
+        "creativity_bonus_notes": _string_schema(),
+    },
+    required=[
+        "correctness",
+        "correctness_notes",
+        "code_quality_structure",
+        "code_quality_structure_notes",
+        "resilience_error_handling",
+        "resilience_error_handling_notes",
+        "documentation_explanation",
+        "documentation_explanation_notes",
+        "creativity_bonus",
+        "creativity_bonus_notes",
     ],
 )
