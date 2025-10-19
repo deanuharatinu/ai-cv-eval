@@ -9,9 +9,10 @@ from typing import Mapping, Optional, Protocol, Union
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.adapters.llm_provider import LLMProvider
+from app.adapters.llm_provider import GeminiLLMProvider, LLMProvider
 from app.adapters.queue_inproc import InProcessQueue
 from app.adapters.storage import LocalStorage, Storage
+from app.adapters.vector_store import ChromaDBVectorStore, VectorStore
 from app.domain.models import (
     EvaluateRequest,
     EvaluateResponse,
@@ -38,11 +39,13 @@ class EvalService(EvalServiceProtocol):
         *,
         storage: Optional[Storage] = None,
         llm_provider: Optional[LLMProvider] = None,
+        vector_store: Optional[VectorStore] = None,
     ) -> None:
         self._queue = queue
         self._session_factory = session_factory
         self._storage = storage or LocalStorage()
-        self._llm_provider = llm_provider or LLMProvider()
+        self._llm_provider = llm_provider or GeminiLLMProvider()
+        self._vector_store = vector_store or ChromaDBVectorStore()
 
     async def _process_job(self, job_id: str, payload: EvaluateRequest) -> None:
         try:
@@ -228,6 +231,30 @@ class EvalService(EvalServiceProtocol):
         structured_cv = await self._llm_provider.parse_resume(resume_text=cv_text)
         await self._persist_cv_snapshot(job_id, structured_cv)
 
+        await self._update_job(job_id, stage="cv_scoring")
+        scoring_rule_results = await self._vector_store.query(
+            query="Scoring rubric for CV Match Evaluation", top_k=2
+        )
+        scoring_rule = "\n".join(
+            [result.get("text", "") for result in scoring_rule_results]
+        )
+
+        job_description_results = await self._vector_store.query(
+            query=f"Job description for role: {payload.job_title}", top_k=2
+        )
+        job_description = "\n".join(
+            [result.get("text", "") for result in job_description_results]
+        )
+
+        scored_resume = await self._llm_provider.score_resume(
+            job_title=payload.job_title,
+            scoring_rule=scoring_rule,
+            job_description=job_description,
+            resume=structured_cv,
+        )
+
+        await self._persist_resume_score_snapshot(job_id, scored_resume)
+
     async def _process_project_report(
         self, job_id: str, payload: EvaluateRequest
     ) -> None:
@@ -240,6 +267,30 @@ class EvalService(EvalServiceProtocol):
             project_report_text=report_text
         )
         await self._persist_project_report_snapshot(job_id, structured_report)
+
+        await self._update_job(job_id, stage="report_scoring")
+        scoring_rule_results = await self._vector_store.query(
+            query="Scoring rubric for Project Deliverable Evaluation", top_k=2
+        )
+        scoring_rule = "\n".join(
+            [result.get("text", "") for result in scoring_rule_results]
+        )
+
+        case_study_results = await self._vector_store.query(
+            query=f"Case study brief for role: {payload.job_title}", top_k=2
+        )
+        case_study = "\n".join(
+            [result.get("text", "") for result in case_study_results]
+        )
+
+        scored_project_report = await self._llm_provider.score_project_report(
+            job_title=payload.job_title,
+            scoring_rule=scoring_rule,
+            case_study_brief=case_study,
+            project_report=structured_report,
+        )
+
+        await self._persist_report_score_snapshot(job_id, scored_project_report)
 
     async def _extract_pdf_text(self, file_id: str) -> str:
         pdf_bytes = await self._storage.open(file_id)
@@ -275,6 +326,48 @@ class EvalService(EvalServiceProtocol):
         params: dict[str, object] = {
             "job_id": job_id,
             "raw_project_json": json.dumps(project_report_snapshot),
+        }
+
+        query = text(
+            f"""
+                UPDATE evaluation_results
+                SET {', '.join(assignments)}
+                WHERE job_id = :job_id
+            """
+        )
+
+        async with self._session_factory() as session:
+            await session.execute(query, params)
+            await session.commit()
+
+    async def _persist_resume_score_snapshot(
+        self, job_id: str, resume_score_snapshot: dict[str, object]
+    ) -> None:
+        assignments = ["raw_resume_score_json = :raw_resume_score_json"]
+        params: dict[str, object] = {
+            "job_id": job_id,
+            "raw_resume_score_json": json.dumps(resume_score_snapshot),
+        }
+
+        query = text(
+            f"""
+                UPDATE evaluation_results
+                SET {', '.join(assignments)}
+                WHERE job_id = :job_id
+            """
+        )
+
+        async with self._session_factory() as session:
+            await session.execute(query, params)
+            await session.commit()
+
+    async def _persist_report_score_snapshot(
+        self, job_id: str, report_score_snapshot: dict[str, object]
+    ) -> None:
+        assignments = ["raw_project_score_json = :raw_project_score_json"]
+        params: dict[str, object] = {
+            "job_id": job_id,
+            "raw_project_score_json": json.dumps(report_score_snapshot),
         }
 
         query = text(
