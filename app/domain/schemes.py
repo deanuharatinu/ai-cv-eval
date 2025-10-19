@@ -15,6 +15,10 @@ def _integer_schema(*, nullable: bool = True) -> types.Schema:
     return types.Schema(type=types.Type.INTEGER, nullable=nullable)
 
 
+def _number_schema(*, nullable: bool = True) -> types.Schema:
+    return types.Schema(type=types.Type.NUMBER, nullable=nullable)
+
+
 def _object_schema(
     properties: dict[str, types.Schema],
     *,
@@ -289,6 +293,8 @@ CV_MATCH_EVALUATION_SCHEMA = _object_schema(
         "relevant_achievements_notes": _string_schema(),
         "cultural_collaboration_fit": _integer_schema(),
         "cultural_collaboration_fit_notes": _string_schema(),
+        "cv_match_rate": _number_schema(),
+        "cv_feedback": _string_schema(),
     },
     required=[
         "technical_skills_match",
@@ -299,6 +305,8 @@ CV_MATCH_EVALUATION_SCHEMA = _object_schema(
         "relevant_achievements_notes",
         "cultural_collaboration_fit",
         "cultural_collaboration_fit_notes",
+        "cv_match_rate",
+        "cv_feedback",
     ],
 )
 
@@ -315,6 +323,8 @@ PROJECT_DELIVERABLE_EVALUATION_SCHEMA = _object_schema(
         "documentation_explanation_notes": _string_schema(),
         "creativity_bonus": _integer_schema(),
         "creativity_bonus_notes": _string_schema(),
+        "project_score": _number_schema(),
+        "project_feedback": _string_schema(),
     },
     required=[
         "correctness",
@@ -327,5 +337,7 @@ PROJECT_DELIVERABLE_EVALUATION_SCHEMA = _object_schema(
         "documentation_explanation_notes",
         "creativity_bonus",
         "creativity_bonus_notes",
+        "project_score",
+        "project_feedback",
     ],
 )

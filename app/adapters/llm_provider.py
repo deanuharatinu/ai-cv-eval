@@ -238,6 +238,7 @@ class GeminiLLMProvider(LLMProvider):
             "- Justify scores internally with explicit evidence from the resume that maps to the job requirements and rubric.\n"
             "- When evidence is thin or absent, score conservatively rather than guessing.\n"
             "- For each score, provide concise notes explaining the rationale and citing the supporting resume details.\n"
+            "- Compute the overall CV match rate by applying the weights from the scoring rule to each category score, summing the weighted results, and returning the final value as a decimal between 0 and 1."
             "\n"
             "Available references:\n"
             "<scoring_rule>\n"
@@ -260,6 +261,8 @@ class GeminiLLMProvider(LLMProvider):
             '  "relevant_achievements_notes": <str>,\n'
             '  "cultural_collaboration_fit": <int>\n'
             '  "cultural_collaboration_fit_notes": <str>\n'
+            '  "cv_match_rate": <float>\n'
+            '  "cv_feedback": <str>\n'
             "}\n"
             "Do not include commentary, markdown fences, or extra keys in the final response."
         )
@@ -291,6 +294,7 @@ class GeminiLLMProvider(LLMProvider):
             "- Base each score on explicit evidence from the project report that maps to the rubric and case study brief.\n"
             "- When evidence is weak or absent, score conservatively rather than guessing.\n"
             "- For every score, supply concise notes that explain the rationale and cite the supporting details from the project report.\n"
+            "- Compute the overall project score by applying the weights from the scoring rule to each category score, summing the weighted results, and returning the final value"
             "\n"
             "Available references:\n"
             "<scoring_rule>\n"
@@ -315,6 +319,8 @@ class GeminiLLMProvider(LLMProvider):
             '  "documentation_explanation_notes": <str>,\n'
             '  "creativity_bonus": <int>,\n'
             '  "creativity_bonus_notes": <str>\n'
+            '  "project_score": <float>\n'
+            '  "project_feedback": <str>\n'
             "}\n"
             "Do not include commentary, markdown fences, or extra keys in the final response."
         )
