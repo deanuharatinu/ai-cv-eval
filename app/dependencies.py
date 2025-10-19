@@ -3,6 +3,7 @@ from functools import lru_cache
 from app.adapters.llm_provider import GeminiLLMProvider, LLMProvider
 from app.adapters.queue_inproc import InProcessQueue
 from app.adapters.storage import LocalStorage, Storage
+from app.adapters.vector_store import ChromaDBVectorStore
 from app.services.eval_service import EvalService, EvalServiceProtocol
 from app.services.upload_service import UploadService, UploadServiceProtocol
 from app.infra.db import AsyncSessionMaker
@@ -21,6 +22,10 @@ def get_queue() -> InProcessQueue:
 @lru_cache
 def get_llm_provider() -> LLMProvider:
     return GeminiLLMProvider()
+
+@lru_cache
+def get_vector_store() -> ChromaDBVectorStore:
+    return ChromaDBVectorStore()
 
 
 def get_upload_service() -> UploadServiceProtocol:
