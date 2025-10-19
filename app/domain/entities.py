@@ -38,3 +38,5 @@ class EvalResultRecord:
     overall_summary: Optional[str]
     raw_cv_json: Optional[dict]
     raw_project_json: Optional[dict]
+    raw_resume_score_json: Optional[dict]
+    raw_project_score_json: Optional[dict]

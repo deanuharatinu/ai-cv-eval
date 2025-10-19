@@ -21,11 +21,17 @@ class JobModel(Base):
     job_title: Mapped[str] = mapped_column(String(128))
     cv_file_id: Mapped[str] = mapped_column(String(64))
     report_file_id: Mapped[str] = mapped_column(String(64))
-    status: Mapped[JobStatus] = mapped_column(Enum(JobStatus, name="job_status"), default=JobStatus.queued)
+    status: Mapped[JobStatus] = mapped_column(
+        Enum(JobStatus, name="job_status"), default=JobStatus.queued
+    )
     stage: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
 
     result: Mapped[Optional["EvalResultModel"]] = relationship(
         "EvalResultModel",
@@ -50,5 +56,7 @@ class EvalResultModel(Base):
     overall_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     raw_cv_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     raw_project_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    raw_resume_score_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    raw_project_score_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
     job: Mapped[JobModel] = relationship("JobModel", back_populates="result")
