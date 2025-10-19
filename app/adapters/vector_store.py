@@ -1,4 +1,12 @@
-from typing import Protocol, Sequence
+from __future__ import annotations
+
+import chromadb
+
+from pathlib import Path
+from typing import Optional, Protocol, Sequence
+
+from app.core.config import settings
+from app.util.gemini_embedding import GeminiEmbeddingFunction
 
 
 class RetrievedChunk(dict):
@@ -6,20 +14,45 @@ class RetrievedChunk(dict):
 
 
 class VectorStore(Protocol):
-    async def upsert(self, doc_id: str, chunks: Sequence[str]) -> None:
-        ...
+    async def upsert(self, doc_id: str, chunks: Sequence[dict[str, str]]) -> None: ...
 
-    async def query(self, query: str, top_k: int = 5) -> list[RetrievedChunk]:
-        ...
+    async def query(self, query: str, top_k: int = 5) -> list[RetrievedChunk]: ...
 
 
-class InMemoryVectorStore(VectorStore):
-    def __init__(self) -> None:
-        self._store: dict[str, list[str]] = {}
+class ChromaDBVectorStore(VectorStore):
+    def __init__(self, chroma_path: Optional[Path] = None) -> None:
+        storage_root = Path(chroma_path or Path(settings.documents_root) / "chroma")
+        storage_root.mkdir(parents=True, exist_ok=True)
 
-    async def upsert(self, doc_id: str, chunks: Sequence[str]) -> None:
-        self._store.setdefault(doc_id, []).extend(chunks)
+        self._chromadb_client = chromadb.PersistentClient(path=str(storage_root))
+        self._collection = self._chromadb_client.get_or_create_collection(
+            name="ground_truth",
+            metadata={"hnsw:space": "cosine"},
+            embedding_function=GeminiEmbeddingFunction(),
+        )
 
-    async def query(self, query: str, top_k: int = 5) -> list[RetrievedChunk]:
-        # TODO: swap with Chroma or FAISS implementation.
-        return [RetrievedChunk({"doc_id": doc_id, "text": chunk}) for doc_id, chunks in self._store.items() for chunk in chunks][:top_k]
+    async def upsert(self, doc_id: str, chunks: Sequence[dict[str, str]]) -> None:
+        ids, texts, metadatas = [], [], []
+        for i, c in enumerate(chunks):
+            ids.append(f"{doc_id}:{i}")
+            texts.append(c["text"])
+            metadatas.append({"doc_id": doc_id, "kind": c["kind"], "ord": i})
+
+        self._collection.add(ids=ids, documents=texts, metadatas=metadatas)
+
+    async def query(
+        self, query: str, top_k: int = 5, where: chromadb.Where = None
+    ) -> list[RetrievedChunk]:
+        result = self._collection.query(
+            query_texts=[query], n_results=top_k, where=where
+        )
+
+        return [
+            {
+                "chunk_id": result["ids"][0][i],
+                "text": result["documents"][0][i],
+                "metadata": result["metadatas"][0][i],
+                "score": 1.0 - result["distances"][0][i],
+            }
+            for i in range(len(result["ids"][0]))
+        ]
