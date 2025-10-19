@@ -23,6 +23,7 @@ def get_queue() -> InProcessQueue:
 def get_llm_provider() -> LLMProvider:
     return GeminiLLMProvider()
 
+
 @lru_cache
 def get_vector_store() -> ChromaDBVectorStore:
     return ChromaDBVectorStore()
@@ -38,4 +39,5 @@ def get_eval_service() -> EvalServiceProtocol:
         session_factory=AsyncSessionMaker,
         storage=get_storage(),
         llm_provider=get_llm_provider(),
+        vector_store=get_vector_store(),
     )
