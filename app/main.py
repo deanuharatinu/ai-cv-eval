@@ -15,9 +15,8 @@ async def lifespan(app: FastAPI):
     """Initialize resources on startup and dispose of them on shutdown."""
     configure_logging()
     await init_db()
-    # TODO: plug in database/session pool setup and dependency wiring here.
+
     yield
-    # TODO: clean up resources that need graceful shutdown.
 
 
 def create_app() -> FastAPI:
