@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import logging
+
 from typing import Any, Optional, Protocol
 
 from app.core.config import settings
@@ -10,6 +12,7 @@ from google.genai import types
 
 from app.domain import schemes
 from app.util import constants
+from app.util.retry import async_retry, is_retryable_gemini_error
 
 
 class LLMProvider(Protocol):
@@ -48,6 +51,10 @@ class CVParserError(RuntimeError):
 class GeminiLLMProvider(LLMProvider):
     _DEFAULT_MAX_RESUME_CHARS = 18000
     _DEFAULT_TEMPERATURE = 0.3
+    _DEFAULT_RETRY_ATTEMPTS = 4
+    _DEFAULT_RETRY_BASE_DELAY = 0.6
+    _DEFAULT_RETRY_MAX_DELAY = 6.0
+    _DEFAULT_RETRY_JITTER = 0.4
 
     def __init__(
         self,
@@ -56,6 +63,10 @@ class GeminiLLMProvider(LLMProvider):
         model: Optional[str] = None,
         api_key: Optional[str] = None,
         max_resume_chars: int = _DEFAULT_MAX_RESUME_CHARS,
+        retry_attempts: int = _DEFAULT_RETRY_ATTEMPTS,
+        retry_base_delay: float = _DEFAULT_RETRY_BASE_DELAY,
+        retry_max_delay: float = _DEFAULT_RETRY_MAX_DELAY,
+        retry_jitter: float = _DEFAULT_RETRY_JITTER,
     ) -> None:
         self._model = model or settings.llm_model or constants.GEMINI_2_5_FLASH
         self._max_resume_chars = max_resume_chars
@@ -64,8 +75,12 @@ class GeminiLLMProvider(LLMProvider):
             raise ValueError(
                 "Missing Gemini API key. Set settings.llm_provider_api_key or GEMINI_API_KEY."
             )
-
         self._client = client or genai.Client(api_key=effective_api_key)
+        self._logger = logging.getLogger(self.__class__.__name__)
+        self._retry_attempts = retry_attempts
+        self._retry_base_delay = retry_base_delay
+        self._retry_max_delay = retry_max_delay
+        self._retry_jitter = retry_jitter
 
     async def parse_resume(self, *, resume_text: str) -> dict[str, Any]:
         truncated_resume = resume_text[: self._max_resume_chars]
@@ -82,10 +97,10 @@ class GeminiLLMProvider(LLMProvider):
             response_schema=schemes.CV_RESPONSE_SCHEMA,
         )
 
-        response = await self._client.aio.models.generate_content(
-            model=self._model,
+        response = await self._generate_content_with_retry(
             contents=contents,
             config=resume_parser_generate_config,
+            context="gemini.parse_resume",
         )
 
         payload_text = self._extract_text(response)
@@ -108,10 +123,10 @@ class GeminiLLMProvider(LLMProvider):
             response_schema=schemes.PROJECT_REPORT_SCHEMA,
         )
 
-        response = await self._client.aio.models.generate_content(
-            model=self._model,
+        response = await self._generate_content_with_retry(
             contents=contents,
             config=resume_parser_generate_config,
+            context="gemini.parse_project_report",
         )
 
         payload_text = self._extract_text(response)
@@ -147,10 +162,10 @@ class GeminiLLMProvider(LLMProvider):
             response_schema=schemes.CV_MATCH_EVALUATION_SCHEMA,
         )
 
-        response = await self._client.aio.models.generate_content(
-            model=self._model,
+        response = await self._generate_content_with_retry(
             contents=contents,
             config=resume_scoring_generate_config,
+            context="gemini.score_resume",
         )
 
         payload_text = self._extract_text(response)
@@ -186,10 +201,10 @@ class GeminiLLMProvider(LLMProvider):
             response_schema=schemes.PROJECT_DELIVERABLE_EVALUATION_SCHEMA,
         )
 
-        response = await self._client.aio.models.generate_content(
-            model=self._model,
+        response = await self._generate_content_with_retry(
             contents=contents,
             config=resume_scoring_generate_config,
+            context="gemini.score_project_report",
         )
 
         payload_text = self._extract_text(response)
@@ -216,10 +231,10 @@ class GeminiLLMProvider(LLMProvider):
             seed=0,
         )
 
-        response = await self._client.aio.models.generate_content(
-            model=self._model,
+        response = await self._generate_content_with_retry(
             contents=contents,
             config=overall_summary_generate_config,
+            context="gemini.overall_summary",
         )
 
         payload_text = self._extract_text(response)
@@ -235,6 +250,28 @@ class GeminiLLMProvider(LLMProvider):
             "<resume>\n"
             f"{resume_text}\n"
             "</resume>"
+        )
+
+    async def _generate_content_with_retry(
+        self,
+        *,
+        contents: list[types.Content],
+        config: types.GenerateContentConfig,
+        context: str,
+    ) -> types.GenerateContentResponse:
+        return await async_retry(
+            lambda: self._client.aio.models.generate_content(
+                model=self._model,
+                contents=contents,
+                config=config,
+            ),
+            attempts=self._retry_attempts,
+            base_delay=self._retry_base_delay,
+            max_delay=self._retry_max_delay,
+            jitter=self._retry_jitter,
+            should_retry=is_retryable_gemini_error,
+            logger=self._logger,
+            context=context,
         )
 
     def _build_project_report_parser_prompt(self, project_report_text: str) -> str:
