@@ -141,6 +141,9 @@ def sync_retry(
 def is_retryable_gemini_error(exc: BaseException) -> bool:
     """Best-effort detection of transient Gemini API failures."""
 
+    if isinstance(exc, (errors.ClientError)):
+        return False
+
     if isinstance(exc, errors.APIError):
         return True
 
