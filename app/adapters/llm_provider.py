@@ -389,16 +389,20 @@ class GeminiLLMProvider(LLMProvider):
             "Think through the evidence step-by-step, then respond with ONLY valid JSON matching this schema:\n"
             "{\n"
             '  "correctness": <int>,\n'
+            '  "correctness_weight": <int>,\n'
             '  "correctness_notes": <str>,\n'
             '  "code_quality_structure": <int>,\n'
+            '  "code_quality_structure_weight": <int>,\n'
             '  "code_quality_structure_notes": <str>,\n'
             '  "resilience_error_handling": <int>,\n'
+            '  "resilience_error_handling_weight": <int>,\n'
             '  "resilience_error_handling_notes": <str>,\n'
             '  "documentation_explanation": <int>,\n'
+            '  "documentation_explanation_weight": <int>,\n'
             '  "documentation_explanation_notes": <str>,\n'
             '  "creativity_bonus": <int>,\n'
+            '  "creativity_bonus_weight": <int>,\n'
             '  "creativity_bonus_notes": <str>\n'
-            '  "project_score": <float>\n'
             '  "project_feedback": <str>\n'
             "}\n"
             "Do not include commentary, markdown fences, or extra keys in the final response."
