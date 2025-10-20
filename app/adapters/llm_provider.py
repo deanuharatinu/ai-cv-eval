@@ -17,6 +17,7 @@ class LLMProvider(Protocol):
     async def parse_project_report(
         self, *, project_report_text: str
     ) -> dict[str, Any]: ...
+
     async def score_resume(
         self,
         *,
@@ -25,6 +26,7 @@ class LLMProvider(Protocol):
         job_description: str,
         resume: dict[str, Any],
     ) -> dict[str, Any]: ...
+
     async def score_project_report(
         self,
         *,
@@ -33,6 +35,10 @@ class LLMProvider(Protocol):
         case_study_brief: str,
         project_report: dict[str, Any],
     ) -> dict[str, Any]: ...
+
+    async def get_candidate_overall_summary(
+        self, scored_resume: dict[str, Any], scored_project_report: dict[str, Any]
+    ) -> str: ...
 
 
 class CVParserError(RuntimeError):
@@ -192,6 +198,36 @@ class GeminiLLMProvider(LLMProvider):
 
         return self._decode_payload(payload_text)
 
+    async def get_candidate_overall_summary(
+        self, scored_resume: dict[str, Any], scored_project_report: dict[str, Any]
+    ) -> str:
+        prompt = self._build_overall_summary_prompt(
+            scored_resume=json.dumps(scored_resume, indent=2),
+            scored_project_report=json.dumps(scored_project_report, indent=2),
+        )
+        contents = [
+            types.Content(role="user", parts=[types.Part.from_text(text=prompt)])
+        ]
+
+        overall_summary_generate_config = types.GenerateContentConfig(
+            temperature=0.3,
+            top_p=0.5,
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
+            seed=0,
+        )
+
+        response = await self._client.aio.models.generate_content(
+            model=self._model,
+            contents=contents,
+            config=overall_summary_generate_config,
+        )
+
+        payload_text = self._extract_text(response)
+        if not payload_text:
+            raise CVParserError("Gemini response was empty.")
+
+        return payload_text
+
     def _build_resume_parser_prompt(self, resume_text: str) -> str:
         return (
             "Extract structured JSON for the candidate using the schema shared earlier.\n"
@@ -278,7 +314,9 @@ class GeminiLLMProvider(LLMProvider):
         project_report: dict[str, Any],
     ) -> str:
         report_json = json.dumps(project_report, indent=2)
-        scoring_rule_section = scoring_rule.strip() or "No scoring rule context provided."
+        scoring_rule_section = (
+            scoring_rule.strip() or "No scoring rule context provided."
+        )
         brief_section = case_study_brief.strip() or "No case study brief provided."
         role_title = job_title or "Unknown role"
 
@@ -325,6 +363,22 @@ class GeminiLLMProvider(LLMProvider):
             '  "project_feedback": <str>\n'
             "}\n"
             "Do not include commentary, markdown fences, or extra keys in the final response."
+        )
+
+    def _build_overall_summary_prompt(
+        self,
+        scored_resume: str,
+        scored_project_report: str,
+    ) -> str:
+        return (
+            "You are a resume evaluation expert. Review the scored resume and scored project report provided below.\n"
+            " Respond in 3-5 sentences that clearly cover (1) key strengths, (2) notable gaps, and (3) actionable recommendations)\n"
+            "<scored_resume>\n"
+            f"{scored_resume}\n"
+            "</scored_resume>\n"
+            "<scored_project_report>\n"
+            f"{scored_project_report}\n"
+            "</scored_project_report>"
         )
 
     @staticmethod

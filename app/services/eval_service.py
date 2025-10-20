@@ -4,7 +4,7 @@ import json
 import uuid
 
 from functools import partial
-from typing import Optional, Protocol
+from typing import Any, Optional, Protocol
 
 from app.adapters import repository
 from app.adapters.llm_provider import GeminiLLMProvider, LLMProvider
@@ -42,6 +42,17 @@ class EvalService(EvalServiceProtocol):
         self._llm_provider = llm_provider or GeminiLLMProvider()
         self._vector_store = vector_store or ChromaDBVectorStore()
 
+    async def enqueue(self, payload: EvaluateRequest) -> EvaluateResponse:
+        job_id = uuid.uuid4().hex
+
+        await self._repository.create_job(job_id, payload)
+        self._queue.submit(partial(self._process_job, job_id, payload))
+
+        return EvaluateResponse(id=job_id, status=JobStatus.queued)
+
+    async def get_status(self, job_id: str) -> ResultResponse:
+        return await self._repository.get_status(job_id)
+
     async def _process_job(self, job_id: str, payload: EvaluateRequest) -> None:
         try:
             await self._repository.update_job(
@@ -52,8 +63,21 @@ class EvalService(EvalServiceProtocol):
             )
 
             await self._repository.create_eval_result(job_id)
-            await self._process_cv(job_id, payload)
-            await self._process_project_report(job_id, payload)
+            scored_resume = await self._process_cv(job_id, payload)
+            scored_project_report = await self._process_project_report(job_id, payload)
+
+            overall_summary = await self._llm_provider.get_candidate_overall_summary(
+                scored_resume, scored_project_report
+            )
+
+            candidate_score = {
+                "cv_match_rate": scored_resume.get("cv_match_rate", 0.0),
+                "cv_feedback": scored_resume.get("cv_feedback", ""),
+                "project_score": scored_project_report.get("project_score", 0.0),
+                "project_feedback": scored_project_report.get("project_feedback", ""),
+                "overall_summary": overall_summary,
+            }
+            await self._persist_candidate_overall_summary(job_id, candidate_score)
 
             await self._repository.update_job(
                 job_id,
@@ -69,18 +93,9 @@ class EvalService(EvalServiceProtocol):
                 error_message=str(exc),
             )
 
-    async def enqueue(self, payload: EvaluateRequest) -> EvaluateResponse:
-        job_id = uuid.uuid4().hex
-
-        await self._repository.create_job(job_id, payload)
-        self._queue.submit(partial(self._process_job, job_id, payload))
-
-        return EvaluateResponse(id=job_id, status=JobStatus.queued)
-
-    async def get_status(self, job_id: str) -> ResultResponse:
-        return await self._repository.get_status(job_id)
-
-    async def _process_cv(self, job_id: str, payload: EvaluateRequest) -> None:
+    async def _process_cv(
+        self, job_id: str, payload: EvaluateRequest
+    ) -> dict[str, Any]:
         cv_text = await self._extract_pdf_text(payload.cv_id)
         if not cv_text.strip():
             raise ValueError("Unable to extract text from CV PDF.")
@@ -114,9 +129,11 @@ class EvalService(EvalServiceProtocol):
 
         await self._persist_resume_score_snapshot(job_id, scored_resume)
 
+        return scored_resume
+
     async def _process_project_report(
         self, job_id: str, payload: EvaluateRequest
-    ) -> None:
+    ) -> dict[str, Any]:
         report_text = await self._extract_pdf_text(payload.report_id)
         if not report_text.strip():
             raise ValueError("Unable to extract text from Report Project PDF.")
@@ -151,6 +168,8 @@ class EvalService(EvalServiceProtocol):
         )
 
         await self._persist_report_score_snapshot(job_id, scored_project_report)
+
+        return scored_project_report
 
     async def _extract_pdf_text(self, file_id: str) -> str:
         pdf_bytes = await self._storage.open(file_id)
@@ -195,4 +214,17 @@ class EvalService(EvalServiceProtocol):
         params: dict[str, object] = {
             "raw_project_score_json": json.dumps(report_score_snapshot),
         }
+        await self._repository.update_eval_result(job_id, assignments, params)
+
+    async def _persist_candidate_overall_summary(
+        self, job_id: str, candidate_score: dict[str, Any]
+    ) -> None:
+        assignments = [
+            "cv_match_rate = :cv_match_rate",
+            "cv_feedback = :cv_feedback",
+            "project_score = :project_score",
+            "project_feedback = :project_feedback",
+            "overall_summary = :overall_summary",
+        ]
+        params: dict[str, object] = candidate_score
         await self._repository.update_eval_result(job_id, assignments, params)
