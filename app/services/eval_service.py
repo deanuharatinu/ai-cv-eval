@@ -1,7 +1,7 @@
 import asyncio
+import hashlib
 import io
 import json
-import uuid
 
 from functools import partial
 from typing import Any, Optional, Protocol
@@ -17,6 +17,7 @@ from app.domain.models import (
     JobStatus,
     ResultResponse,
 )
+from sqlalchemy.exc import IntegrityError
 from pypdf import PdfReader
 
 
@@ -43,9 +44,20 @@ class EvalService(EvalServiceProtocol):
         self._vector_store = vector_store or ChromaDBVectorStore()
 
     async def enqueue(self, payload: EvaluateRequest) -> EvaluateResponse:
-        job_id = uuid.uuid4().hex
+        job_id = self._derive_job_id(payload)
 
-        await self._repository.create_job(job_id, payload)
+        existing = await self._repository.get_status(job_id)
+        if not self._is_unknown_job(existing):
+            return EvaluateResponse(id=job_id, status=existing.status)
+
+        try:
+            await self._repository.create_job(job_id, payload)
+        except IntegrityError:
+            existing = await self._repository.get_status(job_id)
+            if self._is_unknown_job(existing):
+                raise
+            return EvaluateResponse(id=job_id, status=existing.status)
+
         self._queue.submit(partial(self._process_job, job_id, payload))
 
         return EvaluateResponse(id=job_id, status=JobStatus.queued)
@@ -228,3 +240,21 @@ class EvalService(EvalServiceProtocol):
         ]
         params: dict[str, object] = candidate_score
         await self._repository.update_eval_result(job_id, assignments, params)
+
+    @staticmethod
+    def _derive_job_id(payload: EvaluateRequest) -> str:
+        canonical_payload = json.dumps(
+            {
+                "job_title": payload.job_title.strip(),
+                "cv_id": payload.cv_id,
+                "report_id": payload.report_id,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        digest = hashlib.sha256(canonical_payload.encode("utf-8")).hexdigest()
+        return digest[:32]
+
+    @staticmethod
+    def _is_unknown_job(result: ResultResponse) -> bool:
+        return result.status == JobStatus.failed and result.error_message == "Unknown job id"
