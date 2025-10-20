@@ -139,6 +139,8 @@ class EvalService(EvalServiceProtocol):
             resume=structured_cv,
         )
 
+        scored_resume["cv_match_rate"] = self._calculate_cv_match_rate(scored_resume)
+
         await self._persist_resume_score_snapshot(job_id, scored_resume)
 
         return scored_resume
@@ -177,6 +179,10 @@ class EvalService(EvalServiceProtocol):
             scoring_rule=scoring_rule,
             case_study_brief=case_study,
             project_report=structured_report,
+        )
+
+        scored_project_report["project_score"] = self._calculate_project_score(
+            scored_project_report
         )
 
         await self._persist_report_score_snapshot(job_id, scored_project_report)
@@ -257,4 +263,90 @@ class EvalService(EvalServiceProtocol):
 
     @staticmethod
     def _is_unknown_job(result: ResultResponse) -> bool:
-        return result.status == JobStatus.failed and result.error_message == "Unknown job id"
+        return (
+            result.status == JobStatus.failed
+            and result.error_message == "Unknown job id"
+        )
+
+    @staticmethod
+    def _calculate_cv_match_rate(scored_resume: dict[str, Any]) -> float:
+        components = [
+            ("technical_skills_match", ("technical_skills_weight",)),
+            ("experience_level", ("experience_level_weight",)),
+            ("relevant_achievements", ("relevant_achievements_weight",)),
+            ("cultural_collaboration_fit", ("cultural_collaboration_fit_weight",)),
+        ]
+
+        weighted_sum = 0.0
+        total_weight = 0.0
+
+        for score_key, weight_keys in components:
+            raw_score = scored_resume.get(score_key)
+            score = EvalService._safe_number(raw_score)
+            weight = 0.0
+
+            for weight_key in weight_keys:
+                raw_weight = scored_resume.get(weight_key)
+                weight = EvalService._safe_number(raw_weight)
+                if weight:
+                    break
+
+            weight_fraction = weight / 100.0 if weight > 1 else weight
+
+            if weight_fraction <= 0:
+                continue
+
+            weighted_sum += score * weight_fraction
+            total_weight += weight_fraction
+
+        if total_weight <= 0:
+            return 0.0
+
+        return round(weighted_sum / total_weight, 2) * 0.2
+
+    @staticmethod
+    def _calculate_project_score(scored_project_report: dict[str, Any]) -> float:
+        components = [
+            ("correctness", ("correctness_weight",)),
+            (
+                "code_quality_structure",
+                ("code_quality_structure_weight",),
+            ),
+            ("resilience_error_handling", ("resilience_error_handling_weight",)),
+            ("documentation_explanation", ("documentation_explanation_weight",)),
+            ("creativity_bonus", ("creativity_bonus_weight",)),
+        ]
+
+        weighted_sum = 0.0
+        total_weight = 0.0
+
+        for score_key, weight_keys in components:
+            raw_score = scored_project_report.get(score_key)
+            score = EvalService._safe_number(raw_score)
+            weight = 0.0
+
+            for weight_key in weight_keys:
+                raw_weight = scored_project_report.get(weight_key)
+                weight = EvalService._safe_number(raw_weight)
+                if weight:
+                    break
+
+            weight_fraction = weight / 100.0 if weight > 1 else weight
+
+            if weight_fraction <= 0:
+                continue
+
+            weighted_sum += score * weight_fraction
+            total_weight += weight_fraction
+
+        if total_weight <= 0:
+            return 0.0
+
+        return round(weighted_sum / total_weight, 2)
+
+    @staticmethod
+    def _safe_number(value: Any) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return 0.0
