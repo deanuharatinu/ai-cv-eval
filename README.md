@@ -36,3 +36,16 @@ make ingest-rag-document
 ```bash
 make run
 ```
+
+- Server will run on `http://0.0.0.0:8000`
+
+## API Documentation
+
+### Using Bruno
+
+- All the API documentations is available on `api_requests/`
+- Install Bruno API client to try the API
+
+## Architecture Decision Record
+
+- The decision made on the architecture is documented on [Design Document](docs/design.md)
