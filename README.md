@@ -4,27 +4,35 @@
 
 ### Installation
 
+- Install venv
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+```
+
+- Install dependencies
+
+```bash
+make install-dependencies
 ```
 
 ### Environment Variables
 
+- Create `.env` using `.env.example` as guidance for the variables
 - Gemini is used for the LLM model and Embedding models
+
+### Document Ingestion as Ground Truth
+
+- Add the document to be ingested inside `data_sample/`
+- Run document ingestion script
+
+```shell
+make ingest-rag-document
+```
 
 ### Running the App
 
 ```bash
-uvicorn app.main:app --reload
-```
-
-### Document Ingestion as Ground Truth
-
-- Add the document to be ingested on `data/documents/`
-- Run document ingestion script
-
-```shell
-python -m app.ingestion.seed_docs
+make run
 ```
