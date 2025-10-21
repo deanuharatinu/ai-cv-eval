@@ -35,7 +35,7 @@ def chunk_text(text: str, chunk_size: int = 800, overlap: int = 200) -> List[str
 
 
 def seed_internal_documents(
-    brief_pdf: Path | None = None,
+    brief_pdf: Path,
     chroma_path: Path | None = None,
     doc_id: str = DEFAULT_DOC_ID,
 ) -> None:
@@ -43,7 +43,7 @@ def seed_internal_documents(
     Ingest the provided PDF into the ground_truth collection.
     Stores the document as sequential chunks tagged by doc_id for retrieval.
     """
-    pdf_path = brief_pdf or Path("Case Study Brief - Backend.pdf")
+    pdf_path = brief_pdf
     if not pdf_path.exists():
         raise FileNotFoundError(f"Could not locate brief PDF at {pdf_path}")
 
@@ -86,4 +86,4 @@ def seed_internal_documents(
 
 
 if __name__ == "__main__":
-    seed_internal_documents()
+    seed_internal_documents(brief_pdf=Path("data_sample/ground-truth-doc.pdf"))

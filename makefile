@@ -11,3 +11,6 @@ run:
 
 install-dependencies:
 	pip install -r requirements.txt
+
+ingest-rag-document:
+	python -m app.ingestion.seed_docs
