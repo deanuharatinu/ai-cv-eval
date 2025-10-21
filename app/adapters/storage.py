@@ -16,6 +16,9 @@ class Storage(Protocol):
     async def open(self, file_id: str) -> bytes:
         ...
 
+    async def exists(self, file_id: str) -> bool:
+        ...
+
 
 class LocalStorage(Storage):
     def __init__(self, root: Path | None = None) -> None:
@@ -37,3 +40,9 @@ class LocalStorage(Storage):
             raise FileNotFoundError(file_id)
         path = candidates[0]
         return await asyncio.to_thread(path.read_bytes)
+
+    async def exists(self, file_id: str) -> bool:
+        return await asyncio.to_thread(self._has_file, file_id)
+
+    def _has_file(self, file_id: str) -> bool:
+        return any(self._root.glob(f"{file_id}*"))
