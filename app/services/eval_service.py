@@ -50,6 +50,11 @@ class EvalService(EvalServiceProtocol):
         if not self._is_unknown_job(existing):
             return EvaluateResponse(id=job_id, status=existing.status)
 
+        is_cv_exist = await self._storage.exists(payload.cv_id)
+        is_report_exist = await self._storage.exists(payload.report_id)
+        if not is_cv_exist or not is_report_exist:
+            return EvaluateResponse(id="CV ID org Report ID not valid", status=JobStatus.failed)
+
         try:
             await self._repository.create_job(job_id, payload)
         except IntegrityError:
